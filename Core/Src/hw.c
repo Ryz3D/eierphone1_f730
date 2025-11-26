@@ -6,15 +6,21 @@
  */
 
 #include "hw.h"
+
+#define USB_CDC 0
+#if USB_CDC
 #include "usbd_cdc_if.h"
+#endif
 
-extern ADC_HandleTypeDef hadc1;
-extern UART_HandleTypeDef huart6;
-extern TIM_HandleTypeDef htim3;
-extern QSPI_HandleTypeDef hqspi;
-extern SRAM_HandleTypeDef hsram1;
+extern ADC_HandleTypeDef hadc1; // Battery voltage
+extern UART_HandleTypeDef huart6; // Debug UART
+extern TIM_HandleTypeDef htim3; // RGB LED PWM timer
+extern TIM_HandleTypeDef htim6; // LCD backlight controller EN pulse generator
+extern QSPI_HandleTypeDef hqspi; // FLASH QSPI
 
+#if USB_CDC
 extern USBD_HandleTypeDef hUsbDeviceFS;
+#endif
 
 extern int __io_putchar(int ch) {
 	if (ch != '\0') {
@@ -32,39 +38,141 @@ extern int __io_putchar(int ch) {
 	return 0;
 }
 
+void hw_kb_loop(void *argument);
+void hw_screen_cmd(uint16_t cmd);
+void hw_screen_dat(uint16_t dat);
+
 void hw_init() {
+	// # bat
+
+	// # led
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
+
+	// # kb
+	TaskHandle_t hw_kb_task;
+	xTaskCreate(hw_kb_loop, "hw_kb", 128, NULL, osPriorityLow, &hw_kb_task);
+
+	// # screen
+	HAL_GPIO_WritePin(LCD_RESET_GPIO_Port, LCD_RESET_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(LCD_POW_EN_GPIO_Port, LCD_POW_EN_Pin, GPIO_PIN_SET);
+	vTaskDelay(pdMS_TO_TICKS(5));
+
+	HAL_GPIO_WritePin(LCD_RESET_GPIO_Port, LCD_RESET_Pin, GPIO_PIN_SET);
+	vTaskDelay(pdMS_TO_TICKS(10));
+
+    hw_screen_cmd(ST7789V_SLPOUT);
+	vTaskDelay(pdMS_TO_TICKS(5));
+
+	hw_screen_cmd(ST7789V_MADCTL); // Memory data acccess control
+    hw_screen_dat(0x00);
+
+    hw_screen_cmd(ST7789V_PORCTRL); // Porch Setting
+    hw_screen_dat(0x0C);
+    hw_screen_dat(0x0C);
+    hw_screen_dat(0x00);
+    hw_screen_dat(0x33);
+    hw_screen_dat(0x33);
+
+    hw_screen_cmd(ST7789V_GCTRL); // Gate Control
+    hw_screen_dat(0x70); // VGH, VGL
+
+    hw_screen_cmd(ST7789V_VCOMS);
+    hw_screen_dat(0x3A);
+
+    hw_screen_cmd(ST7789V_LCMCTRL);
+    hw_screen_dat(0x2C);
+
+    hw_screen_cmd(ST7789V_VDVVRHEN);
+    hw_screen_dat(0x01);
+
+    hw_screen_cmd(ST7789V_VRHS);
+    hw_screen_dat(0x14);
+
+    hw_screen_cmd(ST7789V_VDVS);
+    hw_screen_dat(0x20);
+
+    hw_screen_cmd(ST7789V_FRCTRL2);
+    hw_screen_dat(0x0F); // 60Hz 0A
+
+    hw_screen_cmd(ST7789V_PWCTRL1);
+    hw_screen_dat(0xA4);
+    hw_screen_dat(0xA1); // AVDD VCL
+
+    hw_screen_cmd(ST7789V_PVGAMCTRL);
+    hw_screen_dat(0xD0);
+    hw_screen_dat(0x07);
+    hw_screen_dat(0x0D);
+    hw_screen_dat(0x09);
+    hw_screen_dat(0x08);
+    hw_screen_dat(0x25);
+    hw_screen_dat(0x28);
+    hw_screen_dat(0x53);
+    hw_screen_dat(0x39);
+    hw_screen_dat(0x12);
+    hw_screen_dat(0x0B);
+    hw_screen_dat(0x0A);
+    hw_screen_dat(0x17);
+    hw_screen_dat(0x34);
+
+    hw_screen_cmd(ST7789V_NVGAMCTRL);
+    hw_screen_dat(0xD0);
+    hw_screen_dat(0x07);
+    hw_screen_dat(0x0D);
+    hw_screen_dat(0x09);
+    hw_screen_dat(0x09);
+    hw_screen_dat(0x25);
+    hw_screen_dat(0x29);
+    hw_screen_dat(0x35);
+    hw_screen_dat(0x39);
+    hw_screen_dat(0x13);
+    hw_screen_dat(0x0A);
+    hw_screen_dat(0x0A);
+    hw_screen_dat(0x16);
+    hw_screen_dat(0x34);
+
+    hw_screen_cmd(ST7789V_INVON);
+
+    hw_screen_cmd(ST7789V_COLMOD);
+    hw_screen_dat(0x55); // 65K colors, 16 bit/px
+
+    hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, COLOR_BLACK);
+    hw_screen_cmd(ST7789V_RAMWR);
+    hw_screen_cmd(ST7789V_DISPON);
+	HAL_GPIO_WritePin(LCD_LIGHT_GPIO_Port, LCD_LIGHT_Pin, GPIO_PIN_SET);
 }
 
-uint8_t hw_bat_chrg() {
+uint8_t hw_bat_charging() {
 	// TODO: gpio input
+	return 0;
 }
 
 float hw_bat_volts() {
 	// TODO: adc1 inp9
+	return 4.2f;
 }
 
 void hw_uart_tx(uint8_t *data, uint32_t len) {
+	// TODO: timestamp?
 	HAL_UART_Transmit(&huart6, data, len, 1000);
 }
 
 uint32_t hw_uart_rx(uint8_t *data, uint32_t len) {
-	HAL_UART_Receive(&huart6, data, len, 1000);
+	uint32_t i;
+	for (i = 0; i < len; i++) {
+		if (HAL_UART_Receive(&huart6, data, 1, 10) != HAL_OK) {
+			break;
+		}
+		data++;
+	}
+	return i;
 }
 
 void hw_led_set(uint8_t r, uint8_t g, uint8_t b) {
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, r);
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, g);
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_3, b);
-}
-
-uint32_t hw_kb_get(uint8_t col) {
-	GPIOC->ODR |= 0b111111;
-	GPIOC->ODR &= ~(1UL << col);
-	vTaskDelay(pdMS_TO_TICKS(1));
-	return ~GPIOA->IDR & 0b111111111;
 }
 
 void hw_flash_read() {
@@ -75,10 +183,112 @@ void hw_flash_write() {
 	// TODO
 }
 
-void hw_screen_cmd() {
-	// TODO: WARNING: many pins are still input just to be safe
+volatile hw_kb_buttons_t hw_kb_last_held = { 0 };
+volatile hw_kb_update_t hw_kb_update = { 0 };
+
+hw_kb_update_t hw_kb_get_update() {
+	hw_kb_update_t temp = hw_kb_update;
+	hw_kb_update = (hw_kb_update_t){ 0 };
+	hw_kb_last_held = temp.held;
+	return temp;
 }
 
-void hw_screen_show() {
-	// TODO
+void hw_kb_loop(void *argument) {
+	while (1) {
+		for (uint8_t i = 0; i < HW_KB_COLS; i++) {
+			GPIOC->ODR |= 0b111111;
+			GPIOC->ODR &= ~(1UL << i);
+			vTaskDelay(pdMS_TO_TICKS(1));
+
+			hw_kb_update.held.column[i] = ~GPIOA->IDR & 0b111111111;
+			hw_kb_update.pressed.column[i] |= hw_kb_update.held.column[i] & ~hw_kb_last_held.column[i];
+			hw_kb_update.released.column[i] |= ~hw_kb_update.held.column[i] & hw_kb_last_held.column[i];
+			vTaskDelay(pdMS_TO_TICKS(10));
+		}
+	}
+}
+
+int8_t hw_screen_brightness_current = 15;
+volatile uint8_t hw_screen_brightness_pulses = 0;
+
+void hw_screen_led_timer_callback() {
+	HAL_GPIO_TogglePin(LCD_LIGHT_GPIO_Port, LCD_LIGHT_Pin);
+	if (--hw_screen_brightness_pulses == 0) {
+		HAL_TIM_Base_Stop_IT(&htim6);
+	}
+}
+
+void hw_screen_brightness(int8_t level) {
+	HAL_TIM_Base_Stop_IT(&htim6);
+	__HAL_TIM_SET_COUNTER(&htim6, 0);
+	if (level < 0) {
+		level = 0;
+	}
+	if (level > 15) {
+		level = 15;
+	}
+	hw_screen_brightness_pulses = hw_screen_brightness_current - level;
+	hw_screen_brightness_current = level;
+	while (hw_screen_brightness_pulses < 0) {
+		hw_screen_brightness_pulses += 16; // TODO: negative modulo?
+	}
+	hw_screen_brightness_pulses *= 2;
+	if (hw_screen_brightness_pulses == 0) {
+		return;
+	}
+	HAL_TIM_Base_Start_IT(&htim6);
+}
+
+#define HW_SCREEN_CMD (volatile uint16_t*)(0x60000000UL)
+#define HW_SCREEN_DAT (volatile uint16_t*)(0x60000000UL + (1 << (16 + 1))) // A16
+
+void hw_screen_cmd(uint16_t cmd) {
+	*HW_SCREEN_CMD = cmd;
+}
+
+void hw_screen_dat(uint16_t dat) {
+	*HW_SCREEN_DAT = dat;
+}
+
+void hw_screen_reg_w_16(uint8_t r, uint16_t d) {
+	hw_screen_cmd(r);
+	hw_screen_dat(d >> 8);
+	hw_screen_dat(d);
+}
+
+void hw_screen_reg_w_32(uint8_t r, uint32_t d) {
+	hw_screen_cmd(r);
+	hw_screen_dat(d >> 24);
+	hw_screen_dat(d >> 16);
+	hw_screen_dat(d >> 8);
+	hw_screen_dat(d);
+}
+
+void hw_screen_set_cursor(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
+	hw_screen_reg_w_32(ST7789V_CASET, ((uint32_t)x0 << 16) | x1);
+	hw_screen_reg_w_32(ST7789V_RASET, ((uint32_t)y0 << 16) | y1);
+    hw_screen_cmd(ST7789V_RAMWR);
+}
+
+void hw_screen_set_pixel(uint16_t x, uint16_t y, uint16_t color) {
+	// TODO: wait for screen mutex
+    hw_screen_set_cursor(x, y, x, y);
+    hw_screen_dat(color);
+}
+
+void hw_screen_fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color) {
+	// TODO: wait for screen mutex
+    hw_screen_set_cursor(x, y, x + w - 1, y + h - 1);
+    for (uint32_t n = 0; n < (uint32_t)w * (uint32_t)h; n++) {
+    	hw_screen_dat(color);
+    }
+}
+
+void hw_screen_draw_data(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *data) {
+	// TODO: wait for screen mutex
+    hw_screen_set_cursor(x, y, x + w - 1, y + h - 1);
+    for (uint32_t n = 0; n < (uint32_t)w * (uint32_t)h; n++) {
+    	hw_screen_dat(*data);
+    	data++;
+    }
 }

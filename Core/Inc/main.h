@@ -31,6 +31,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "hw.h"
 #include "core.h"
 /* USER CODE END Includes */
 
@@ -95,8 +96,8 @@ void Error_Handler(void);
 #define VBAT_SNS_GPIO_Port GPIOB
 #define LCD_TE_Pin GPIO_PIN_11
 #define LCD_TE_GPIO_Port GPIOB
-#define LCD_DAT_INS_Pin GPIO_PIN_11
-#define LCD_DAT_INS_GPIO_Port GPIOD
+#define LCD_DAT_CMD_Pin GPIO_PIN_11
+#define LCD_DAT_CMD_GPIO_Port GPIOD
 #define LCD_POW_EN_Pin GPIO_PIN_8
 #define LCD_POW_EN_GPIO_Port GPIOC
 #define KB_ROW_I_Pin GPIO_PIN_8
