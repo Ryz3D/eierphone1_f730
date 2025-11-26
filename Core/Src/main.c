@@ -613,11 +613,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_TIM_TriggerCallback(TIM_HandleTypeDef *htim) {
-	if (htim->Instance == TIM6) {
-		hw_screen_led_timer_callback();
-	}
-}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */

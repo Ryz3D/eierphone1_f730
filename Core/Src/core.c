@@ -10,6 +10,7 @@
 void core(void *argument) {
 	hw_init();
 
+	hw_screen_brightness(0);
     hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, COLOR_WHITE);
     hw_screen_fill_rect(30,  150, 70,  35, COLOR_RED);
     hw_screen_fill_rect(110, 100, 110, 65, COLOR_BROWN);
@@ -42,7 +43,7 @@ void core(void *argument) {
 			);
 		}
 		hw_screen_brightness((uint8_t)(-7.5 * cos(t) + 8.0));
-		t += 0.01;
+		t += 0.03;
 		vTaskDelay(pdMS_TO_TICKS(10));
 	}
 }
