@@ -45,8 +45,11 @@ typedef struct hw_kb_update {
 	hw_kb_buttons_t released;
 } hw_kb_update_t;
 
+#define HW_SCREEN_BRIGHTNESS_MAX 15
 #define HW_SCREEN_W 240
 #define HW_SCREEN_H 320
+#define HW_SCREEN_RGB(r, g, b) ((((r) << 8) & 0b1111100000000000) | (((g) << 3) & 0b0000011111100000) | (((b) >> 3) & 0b0000000000011111))
+#define HW_SCREEN_HEX(h) ((((h) >> 8) & 0b1111100000000000) | (((h) >> 5) & 0b0000011111100000) | (((h) >> 3) & 0b0000000000011111))
 
 void hw_init();
 uint8_t hw_bat_charging();
@@ -54,6 +57,7 @@ float hw_bat_volts();
 void hw_uart_tx(uint8_t *data, uint32_t len);
 uint32_t hw_uart_rx(uint8_t *data, uint32_t len);
 void hw_led_set(uint8_t r, uint8_t g, uint8_t b);
+#define hw_led_set_hex(h) hw_led_set((uint8_t)((h) >> 16), (uint8_t)((h) >> 8), (uint8_t)(h))
 void hw_flash_read();
 void hw_flash_write();
 hw_kb_update_t hw_kb_get_update();
@@ -66,9 +70,14 @@ void hw_screen_fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_
 #define hw_screen_fill_rect_hv_center(x, y, w, h, color) hw_screen_fill_rect((x) - (w) / 2, (y) - (h) / 2, w, h, color)
 void hw_screen_draw_data(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *data);
 void hw_screen_draw_char(uint16_t x, uint16_t y, uint16_t color, char c);
+void hw_screen_draw_char_x2(uint16_t x, uint16_t y, uint16_t color, char c);
 void hw_screen_draw_string(uint16_t x, uint16_t y, uint16_t color, const char *s);
 #define hw_screen_draw_string_h_center(x, y, color, s) hw_screen_draw_string((x) - strlen(s) * 8 / 2, y, color, s)
 #define hw_screen_draw_string_v_center(x, y, color, s) hw_screen_draw_string(x, (y) - 4, color, s)
 #define hw_screen_draw_string_hv_center(x, y, color, s) hw_screen_draw_string((x) - strlen(s) * 8 / 2, (y) - 4, color, s)
+void hw_screen_draw_string_x2(uint16_t x, uint16_t y, uint16_t color, const char *s);
+#define hw_screen_draw_string_x2_h_center(x, y, color, s) hw_screen_draw_string_x2((x) - strlen(s) * 16 / 2, y, color, s)
+#define hw_screen_draw_string_x2_v_center(x, y, color, s) hw_screen_draw_string_x2(x, (y) - 8, color, s)
+#define hw_screen_draw_string_x2_hv_center(x, y, color, s) hw_screen_draw_string_x2((x) - strlen(s) * 16 / 2, (y) - 8, color, s)
 
 #endif /* INC_HW_H_ */

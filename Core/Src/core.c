@@ -20,16 +20,49 @@ void draw_key(uint16_t x, uint16_t y, uint8_t pressed, uint8_t held, uint8_t rel
 
 void core(void *argument) {
 	hw_init();
+	hw_screen_brightness(9);
+	hw_led_set_hex(0x12B4E6);
 
-	hw_led_set(18, 180, 230);
+	// fade white
+    vTaskDelay(pdMS_TO_TICKS(50));
+    for (uint32_t i = 0; i < 255; i += 10) {
+        hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, HW_SCREEN_RGB(i, i, i));
+    	vTaskDelay(pdMS_TO_TICKS(10));
+    }
 
-	hw_screen_brightness(10);
+    // start animation
     hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, COLOR_WHITE);
+    hw_screen_draw_string_hv_center(HW_SCREEN_W / 2, 15, HW_SCREEN_HEX(0x808080), "leck");
+    hw_screen_draw_string_x2_hv_center(HW_SCREEN_W / 2, 35, HW_SCREEN_HEX(0x000000), "mein");
+    const char *title = "eierPhone 3==>";
+    uint32_t title_i = 0;
+    for (uint32_t x = 4; x < HW_SCREEN_W - 4; x++) {
+    	if (title[title_i] != '\0') {
+			if (x >= HW_SCREEN_W / 2 - strlen(title) * 16 / 2 + title_i * 16 + 8) {
+				hw_screen_draw_char_x2(HW_SCREEN_W / 2 - strlen(title) * 16 / 2 + title_i * 16, 50, HW_SCREEN_HEX(0x000000), title[title_i]);
+				title_i++;
+			}
+    	}
+    	hw_screen_fill_rect(x, HW_SCREEN_H - 10, 1, 6, HW_SCREEN_HEX(0x12B4E6));
+		vTaskDelay(pdMS_TO_TICKS(15));
+    }
+    // https://mycolor.space/
+    const uint16_t extra_colors[] = {
+		HW_SCREEN_HEX(0xF9F871), // 5
+		HW_SCREEN_HEX(0xFFC75F), // 4
+		HW_SCREEN_HEX(0xFF9671), // 3
+		HW_SCREEN_HEX(0xFF6F91), // 2
+		HW_SCREEN_HEX(0xD65DB1), // 1
+		HW_SCREEN_HEX(0x845EC2), // 0
+    };
+    for (uint32_t i = 0; i < sizeof(extra_colors) / sizeof(*extra_colors); i++) {
+    	uint32_t offset = (sizeof(extra_colors) / sizeof(*extra_colors) - i - 1) * 1;
+    	hw_screen_draw_string_x2(HW_SCREEN_W / 2 - strlen(title) * 16 / 2 + offset, 50 + offset, extra_colors[i], title);
+    	hw_screen_draw_string_x2(HW_SCREEN_W / 2 - strlen(title) * 16 / 2, 50, HW_SCREEN_HEX(0x000000), title);
+    	vTaskDelay(pdMS_TO_TICKS(100));
+    }
 
-    hw_screen_draw_string_hv_center(120, 20, COLOR_DGREEN, "leck");
-    hw_screen_draw_string_hv_center(120, 30, COLOR_DGREEN, "mein");
-    hw_screen_draw_string_hv_center(120, 40, COLOR_DGREEN, "eierPhone 3==>");
-
+    // keyboard test
 	while (1) {
 		hw_kb_update_t kb = hw_kb_get_update();
 

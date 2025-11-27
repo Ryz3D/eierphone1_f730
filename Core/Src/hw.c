@@ -40,9 +40,6 @@ void hw_kb_loop(void *argument);
 void hw_screen_cmd(uint16_t cmd);
 void hw_screen_dat(uint16_t dat);
 
-SemaphoreHandle_t hw_kb_update_mutex;
-SemaphoreHandle_t hw_screen_mutex;
-
 void hw_init() {
 	// # bat
 
@@ -52,101 +49,97 @@ void hw_init() {
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
 
 	// # kb
-	hw_kb_update_mutex = xSemaphoreCreateMutex();
 	TaskHandle_t hw_kb_task;
 	xTaskCreate(hw_kb_loop, "hw_kb", 128, NULL, osPriorityLow, &hw_kb_task);
 
 	// # screen
-	hw_screen_mutex = xSemaphoreCreateMutex();
-	if (xSemaphoreTake(hw_screen_mutex, pdMS_TO_TICKS(10000)) == pdTRUE) {
-		HAL_GPIO_WritePin(LCD_RESET_GPIO_Port, LCD_RESET_Pin, GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(LCD_POW_EN_GPIO_Port, LCD_POW_EN_Pin, GPIO_PIN_SET);
-		vTaskDelay(pdMS_TO_TICKS(5));
+	HAL_GPIO_WritePin(LCD_RESET_GPIO_Port, LCD_RESET_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(LCD_POW_EN_GPIO_Port, LCD_POW_EN_Pin, GPIO_PIN_SET);
+	vTaskDelay(pdMS_TO_TICKS(5));
 
-		HAL_GPIO_WritePin(LCD_RESET_GPIO_Port, LCD_RESET_Pin, GPIO_PIN_SET);
-		vTaskDelay(pdMS_TO_TICKS(10));
+	HAL_GPIO_WritePin(LCD_RESET_GPIO_Port, LCD_RESET_Pin, GPIO_PIN_SET);
+	vTaskDelay(pdMS_TO_TICKS(10));
 
-		hw_screen_cmd(ST7789V_SLPOUT);
-		vTaskDelay(pdMS_TO_TICKS(5));
+	hw_screen_cmd(ST7789V_SLPOUT);
+	vTaskDelay(pdMS_TO_TICKS(5));
 
-		hw_screen_cmd(ST7789V_MADCTL); // Memory data acccess control
-		hw_screen_dat(0x00);
+	hw_screen_cmd(ST7789V_MADCTL); // Memory data acccess control
+	hw_screen_dat(0x00);
 
-		hw_screen_cmd(ST7789V_PORCTRL); // Porch Setting
-		hw_screen_dat(0x0C);
-		hw_screen_dat(0x0C);
-		hw_screen_dat(0x00);
-		hw_screen_dat(0x33);
-		hw_screen_dat(0x33);
+	hw_screen_cmd(ST7789V_PORCTRL); // Porch Setting
+	hw_screen_dat(0x0C);
+	hw_screen_dat(0x0C);
+	hw_screen_dat(0x00);
+	hw_screen_dat(0x33);
+	hw_screen_dat(0x33);
 
-		hw_screen_cmd(ST7789V_GCTRL); // Gate Control
-		hw_screen_dat(0x70); // VGH, VGL
+	hw_screen_cmd(ST7789V_GCTRL); // Gate Control
+	hw_screen_dat(0x70); // VGH, VGL
 
-		hw_screen_cmd(ST7789V_VCOMS);
-		hw_screen_dat(0x3A);
+	hw_screen_cmd(ST7789V_VCOMS);
+	hw_screen_dat(0x3A);
 
-		hw_screen_cmd(ST7789V_LCMCTRL);
-		hw_screen_dat(0x2C);
+	hw_screen_cmd(ST7789V_LCMCTRL);
+	hw_screen_dat(0x2C);
 
-		hw_screen_cmd(ST7789V_VDVVRHEN);
-		hw_screen_dat(0x01);
+	hw_screen_cmd(ST7789V_VDVVRHEN);
+	hw_screen_dat(0x01);
 
-		hw_screen_cmd(ST7789V_VRHS);
-		hw_screen_dat(0x14);
+	hw_screen_cmd(ST7789V_VRHS);
+	hw_screen_dat(0x14);
 
-		hw_screen_cmd(ST7789V_VDVS);
-		hw_screen_dat(0x20);
+	hw_screen_cmd(ST7789V_VDVS);
+	hw_screen_dat(0x20);
 
-		hw_screen_cmd(ST7789V_FRCTRL2);
-		hw_screen_dat(0x0F); // 60Hz 0A
+	hw_screen_cmd(ST7789V_FRCTRL2);
+	hw_screen_dat(0x0F); // 60Hz 0A
 
-		hw_screen_cmd(ST7789V_PWCTRL1);
-		hw_screen_dat(0xA4);
-		hw_screen_dat(0xA1); // AVDD VCL
+	hw_screen_cmd(ST7789V_PWCTRL1);
+	hw_screen_dat(0xA4);
+	hw_screen_dat(0xA1); // AVDD VCL
 
-		hw_screen_cmd(ST7789V_PVGAMCTRL);
-		hw_screen_dat(0xD0);
-		hw_screen_dat(0x07);
-		hw_screen_dat(0x0D);
-		hw_screen_dat(0x09);
-		hw_screen_dat(0x08);
-		hw_screen_dat(0x25);
-		hw_screen_dat(0x28);
-		hw_screen_dat(0x53);
-		hw_screen_dat(0x39);
-		hw_screen_dat(0x12);
-		hw_screen_dat(0x0B);
-		hw_screen_dat(0x0A);
-		hw_screen_dat(0x17);
-		hw_screen_dat(0x34);
+	hw_screen_cmd(ST7789V_PVGAMCTRL);
+	hw_screen_dat(0xD0);
+	hw_screen_dat(0x07);
+	hw_screen_dat(0x0D);
+	hw_screen_dat(0x09);
+	hw_screen_dat(0x08);
+	hw_screen_dat(0x25);
+	hw_screen_dat(0x28);
+	hw_screen_dat(0x53);
+	hw_screen_dat(0x39);
+	hw_screen_dat(0x12);
+	hw_screen_dat(0x0B);
+	hw_screen_dat(0x0A);
+	hw_screen_dat(0x17);
+	hw_screen_dat(0x34);
 
-		hw_screen_cmd(ST7789V_NVGAMCTRL);
-		hw_screen_dat(0xD0);
-		hw_screen_dat(0x07);
-		hw_screen_dat(0x0D);
-		hw_screen_dat(0x09);
-		hw_screen_dat(0x09);
-		hw_screen_dat(0x25);
-		hw_screen_dat(0x29);
-		hw_screen_dat(0x35);
-		hw_screen_dat(0x39);
-		hw_screen_dat(0x13);
-		hw_screen_dat(0x0A);
-		hw_screen_dat(0x0A);
-		hw_screen_dat(0x16);
-		hw_screen_dat(0x34);
+	hw_screen_cmd(ST7789V_NVGAMCTRL);
+	hw_screen_dat(0xD0);
+	hw_screen_dat(0x07);
+	hw_screen_dat(0x0D);
+	hw_screen_dat(0x09);
+	hw_screen_dat(0x09);
+	hw_screen_dat(0x25);
+	hw_screen_dat(0x29);
+	hw_screen_dat(0x35);
+	hw_screen_dat(0x39);
+	hw_screen_dat(0x13);
+	hw_screen_dat(0x0A);
+	hw_screen_dat(0x0A);
+	hw_screen_dat(0x16);
+	hw_screen_dat(0x34);
 
-		hw_screen_cmd(ST7789V_INVON);
+	hw_screen_cmd(ST7789V_INVON);
 
-		hw_screen_cmd(ST7789V_COLMOD);
-		hw_screen_dat(0x55); // 65K colors, 16 bit/px
+	hw_screen_cmd(ST7789V_COLMOD);
+	hw_screen_dat(0x55); // 65K colors, 16 bit/px
 
-		hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, COLOR_BLACK);
-		hw_screen_cmd(ST7789V_RAMWR);
-		hw_screen_cmd(ST7789V_DISPON);
-		HAL_GPIO_WritePin(LCD_LIGHT_GPIO_Port, LCD_LIGHT_Pin, GPIO_PIN_SET);
-		xSemaphoreGive(hw_screen_mutex);
-	}
+	hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, COLOR_BLACK);
+	hw_screen_cmd(ST7789V_RAMWR);
+	hw_screen_cmd(ST7789V_DISPON);
+	HAL_GPIO_WritePin(LCD_LIGHT_GPIO_Port, LCD_LIGHT_Pin, GPIO_PIN_SET);
+	vTaskDelay(pdMS_TO_TICKS(1));
 }
 
 uint8_t hw_bat_charging() {
@@ -192,10 +185,7 @@ volatile hw_kb_update_t hw_kb_update = { 0 };
 
 hw_kb_update_t hw_kb_get_update() {
 	hw_kb_update_t temp = hw_kb_update;
-	if (xSemaphoreTake(hw_kb_update_mutex, pdMS_TO_TICKS(5000)) == pdTRUE) {
-		memset((void*)&hw_kb_update, 0, sizeof(hw_kb_update_t));
-		xSemaphoreGive(hw_kb_update_mutex);
-	}
+	memset((void*)&hw_kb_update, 0, sizeof(hw_kb_update_t));
 	hw_kb_last_held = temp.held;
 	return temp;
 }
@@ -207,12 +197,9 @@ void hw_kb_loop(void *argument) {
 			GPIOC->ODR &= ~(1UL << i);
 			vTaskDelay(pdMS_TO_TICKS(1));
 
-			if (xSemaphoreTake(hw_kb_update_mutex, pdMS_TO_TICKS(5000)) == pdTRUE) {
-				hw_kb_update.held.column[i] = ~GPIOA->IDR & 0b111111111;
-				hw_kb_update.pressed.column[i] |= hw_kb_update.held.column[i] & ~hw_kb_last_held.column[i];
-				hw_kb_update.released.column[i] |= ~hw_kb_update.held.column[i] & (hw_kb_last_held.column[i] | hw_kb_update.pressed.column[i]);
-				xSemaphoreGive(hw_kb_update_mutex);
-			}
+			hw_kb_update.held.column[i] = ~GPIOA->IDR & 0b111111111;
+			hw_kb_update.pressed.column[i] |= hw_kb_update.held.column[i] & ~hw_kb_last_held.column[i];
+			hw_kb_update.released.column[i] |= ~hw_kb_update.held.column[i] & (hw_kb_last_held.column[i] | hw_kb_update.pressed.column[i]);
 		}
 		vTaskDelay(pdMS_TO_TICKS(10));
 	}
@@ -281,31 +268,22 @@ void hw_screen_set_cursor(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
 }
 
 void hw_screen_set_pixel(uint16_t x, uint16_t y, uint16_t color) {
-	if (xSemaphoreTake(hw_screen_mutex, pdMS_TO_TICKS(5000)) == pdTRUE) {
-		hw_screen_set_cursor(x, y, x, y);
-		hw_screen_dat(color);
-		xSemaphoreGive(hw_screen_mutex);
-	}
+	hw_screen_set_cursor(x, y, x, y);
+	hw_screen_dat(color);
 }
 
 void hw_screen_fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color) {
-	if (xSemaphoreTake(hw_screen_mutex, pdMS_TO_TICKS(5000)) == pdTRUE) {
-		hw_screen_set_cursor(x, y, x + w - 1, y + h - 1);
-		for (uint32_t n = 0; n < (uint32_t)w * (uint32_t)h; n++) {
-			hw_screen_dat(color);
-		}
-		xSemaphoreGive(hw_screen_mutex);
+	hw_screen_set_cursor(x, y, x + w - 1, y + h - 1);
+	for (uint32_t n = 0; n < (uint32_t)w * (uint32_t)h; n++) {
+		hw_screen_dat(color);
 	}
 }
 
 void hw_screen_draw_data(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *data) {
-	if (xSemaphoreTake(hw_screen_mutex, pdMS_TO_TICKS(5000)) == pdTRUE) {
-		hw_screen_set_cursor(x, y, x + w - 1, y + h - 1);
-		for (uint32_t n = 0; n < (uint32_t)w * (uint32_t)h; n++) {
-			hw_screen_dat(*data);
-			data++;
-		}
-		xSemaphoreGive(hw_screen_mutex);
+	hw_screen_set_cursor(x, y, x + w - 1, y + h - 1);
+	for (uint32_t n = 0; n < (uint32_t)w * (uint32_t)h; n++) {
+		hw_screen_dat(*data);
+		data++;
 	}
 }
 
@@ -329,8 +307,36 @@ void hw_screen_draw_char(uint16_t x, uint16_t y, uint16_t color, char c) {
 	}
 }
 
+void hw_screen_draw_char_x2(uint16_t x, uint16_t y, uint16_t color, char c) {
+	if (c == ' ') {
+		return;
+	}
+	uint32_t map_index = 66;
+	for (uint32_t i = 0; font_charmap[i] != '\0'; i++) {
+		if (font_charmap[i] == c) {
+			map_index = i;
+			break;
+		}
+	}
+	for (uint8_t r = 0; r < 8; r++) {
+		for (uint8_t c = 0; c < 8; c++) {
+			if ((font[map_index * 8 + r] >> (7 - c)) & 1) {
+				hw_screen_fill_rect(x + c * 2, y + r * 2, 2, 2, color);
+			}
+		}
+	}
+}
+
 void hw_screen_draw_string(uint16_t x, uint16_t y, uint16_t color, const char *s) {
 	while (*s != '\0') {
-		hw_screen_draw_char(x += 8, y, color, *s++);
+		hw_screen_draw_char(x, y, color, *s++);
+		x += 8;
+	}
+}
+
+void hw_screen_draw_string_x2(uint16_t x, uint16_t y, uint16_t color, const char *s) {
+	while (*s != '\0') {
+		hw_screen_draw_char_x2(x, y, color, *s++);
+		x += 16;
 	}
 }
