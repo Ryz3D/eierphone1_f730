@@ -186,25 +186,31 @@ void hw_flash_write() {
 volatile hw_kb_buttons_t hw_kb_last_held = { 0 };
 volatile hw_kb_update_t hw_kb_update = { 0 };
 
+SemaphoreHandle_t kb_update_mutex;
 hw_kb_update_t hw_kb_get_update() {
+	xSemaphoreTake(kb_update_mutex, portMAX_DELAY);
 	hw_kb_update_t temp = hw_kb_update;
-	hw_kb_update = (hw_kb_update_t){ 0 };
+	memset((void*)&hw_kb_update, 0, sizeof(hw_kb_update_t));
+	xSemaphoreGive(kb_update_mutex);
 	hw_kb_last_held = temp.held;
 	return temp;
 }
 
 void hw_kb_loop(void *argument) {
+	kb_update_mutex = xSemaphoreCreateMutex();
 	while (1) {
 		for (uint8_t i = 0; i < HW_KB_COLS; i++) {
 			GPIOC->ODR |= 0b111111;
 			GPIOC->ODR &= ~(1UL << i);
 			vTaskDelay(pdMS_TO_TICKS(1));
 
+			xSemaphoreTake(kb_update_mutex, portMAX_DELAY);
 			hw_kb_update.held.column[i] = ~GPIOA->IDR & 0b111111111;
 			hw_kb_update.pressed.column[i] |= hw_kb_update.held.column[i] & ~hw_kb_last_held.column[i];
-			hw_kb_update.released.column[i] |= ~hw_kb_update.held.column[i] & hw_kb_last_held.column[i];
-			vTaskDelay(pdMS_TO_TICKS(10));
+			hw_kb_update.released.column[i] |= ~hw_kb_update.held.column[i] & (hw_kb_last_held.column[i] | hw_kb_update.pressed.column[i]);
+			xSemaphoreGive(kb_update_mutex);
 		}
+		vTaskDelay(pdMS_TO_TICKS(10));
 	}
 }
 
@@ -240,7 +246,7 @@ void hw_screen_brightness(int8_t level) {
 }
 
 #define HW_SCREEN_CMD (volatile uint16_t*)(0x60000000UL)
-#define HW_SCREEN_DAT (volatile uint16_t*)(0x60000000UL + (1 << (16 + 1))) // A16
+#define HW_SCREEN_DAT (volatile uint16_t*)(0x60000000UL + (1 << (16 + 1))) // RS = A16
 
 void hw_screen_cmd(uint16_t cmd) {
 	*HW_SCREEN_CMD = cmd;

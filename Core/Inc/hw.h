@@ -13,12 +13,25 @@
 #include "semphr.h"
 #include "cmsis_os2.h"
 #include <math.h>
+#include <memory.h>
 
 #include "main.h"
 #include "defines.h"
 
 #define HW_KB_COLS 6
 #define HW_KB_ROWS 9
+
+#define HW_KB_DEF_BTN(x, c, r) (((x).column[(c)] >> (r)) & 1)
+#define HW_KB_BTN_UP(x)    HW_KB_DEF_BTN(x, 1, 1)
+#define HW_KB_BTN_LEFT(x)  HW_KB_DEF_BTN(x, 0, 1)
+#define HW_KB_BTN_RIGHT(x) HW_KB_DEF_BTN(x, 3, 1)
+#define HW_KB_BTN_DOWN(x)  HW_KB_DEF_BTN(x, 2, 1)
+#define HW_KB_BTN_HOME(x)  HW_KB_DEF_BTN(x, 0, 0)
+#define HW_KB_BTN_POWER(x) HW_KB_DEF_BTN(x, 2, 0)
+#define HW_KB_BTN_OK(x)    HW_KB_DEF_BTN(x, 4, 1)
+#define HW_KB_BTN_BACK(x)  HW_KB_DEF_BTN(x, 5, 1)
+#define HW_KB_BTN_SMALL(x, c_btn, r_btn) HW_KB_DEF_BTN(x, c_btn, 2 + r_btn) // 6x3
+#define HW_KB_BTN_BIG(x, c_btn, r_btn)   HW_KB_DEF_BTN(x, c_btn, 5 + r_btn) // 5x4
 
 typedef struct hw_kb_buttons {
 	uint16_t column[HW_KB_COLS];
