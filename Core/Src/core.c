@@ -26,6 +26,10 @@ void core(void *argument) {
 	hw_screen_brightness(10);
     hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, COLOR_WHITE);
 
+    hw_screen_draw_string_hv_center(120, 20, COLOR_DGREEN, "leck");
+    hw_screen_draw_string_hv_center(120, 30, COLOR_DGREEN, "mein");
+    hw_screen_draw_string_hv_center(120, 40, COLOR_DGREEN, "eierPhone 3==>");
+
 	while (1) {
 		hw_kb_update_t kb = hw_kb_get_update();
 
