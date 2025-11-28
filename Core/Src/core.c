@@ -7,33 +7,17 @@
 
 #include "core.h"
 
-void draw_key(uint16_t x, uint16_t y, uint8_t pressed, uint8_t held, uint8_t released) {
-	if (pressed) {
-		hw_screen_fill_rect(x, y, 16, 16, COLOR_GREEN);
-	} else if (released) {
-		hw_screen_fill_rect(x, y, 16, 16, COLOR_RED);
-	} else {
-		hw_screen_fill_rect(x, y, 16, 16, COLOR_DGREY);
-	}
-	hw_screen_fill_rect(x + 4, y + 4, 8, 8, held ? COLOR_YELLOW : COLOR_DGREY);
-}
+#define KB_EXIT(kb) (HW_KB_BTN_BACK(kb.pressed) || HW_KB_BTN_BIG(kb.pressed, 0, 3))
 
-void core(void *argument) {
-	hw_init();
-	hw_screen_brightness(9);
-	hw_led_set_hex(0x12B4E6);
+void draw_logo(uint8_t animate) {
+    hw_screen_draw_string_hv_center(HW_SCREEN_W / 2, 15, HW_SCREEN_HEX(0x808080), "leck");
 
-	// fade white
-    vTaskDelay(pdMS_TO_TICKS(50));
-    for (uint32_t i = 0; i < 255; i += 10) {
-        hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, HW_SCREEN_RGB(i, i, i));
-    	vTaskDelay(pdMS_TO_TICKS(10));
+    if (animate) {
+    	vTaskDelay(pdMS_TO_TICKS(100));
     }
 
-    // start animation
-    hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, COLOR_WHITE);
-    hw_screen_draw_string_hv_center(HW_SCREEN_W / 2, 15, HW_SCREEN_HEX(0x808080), "leck");
     hw_screen_draw_string_x2_hv_center(HW_SCREEN_W / 2, 35, HW_SCREEN_HEX(0x000000), "mein");
+
     const char *title = "eierPhone 3==>";
     uint32_t title_i = 0;
     for (uint32_t x = 4; x < HW_SCREEN_W - 4; x++) {
@@ -44,7 +28,10 @@ void core(void *argument) {
 			}
     	}
     	hw_screen_fill_rect(x, HW_SCREEN_H - 10, 1, 6, HW_SCREEN_HEX(0x12B4E6));
-		vTaskDelay(pdMS_TO_TICKS(15));
+
+        if (animate) {
+        	vTaskDelay(pdMS_TO_TICKS(5));
+        }
     }
     // https://mycolor.space/
     const uint16_t extra_colors[] = {
@@ -59,44 +46,217 @@ void core(void *argument) {
     	uint32_t offset = (sizeof(extra_colors) / sizeof(*extra_colors) - i - 1) * 1;
     	hw_screen_draw_string_x2(HW_SCREEN_W / 2 - strlen(title) * 16 / 2 + offset, 50 + offset, extra_colors[i], title);
     	hw_screen_draw_string_x2(HW_SCREEN_W / 2 - strlen(title) * 16 / 2, 50, HW_SCREEN_HEX(0x000000), title);
-    	vTaskDelay(pdMS_TO_TICKS(100));
+
+        if (animate) {
+        	vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    }
+}
+
+void draw_btn(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color_border, uint16_t color_fill, uint16_t color_text, const char *text) {
+	hw_screen_fill_rect_hv_center(x, y, w, h, color_border);
+	hw_screen_fill_rect_hv_center(x, y, w - 4, h - 4, color_fill);
+	hw_screen_draw_string_x2_hv_center(x, y, color_text, text);
+}
+
+#define COLOR_DES HW_SCREEN_HEX(0x414656)
+#define COLOR_SEL HW_SCREEN_HEX(0x0059A7)
+#define COLOR_DWN HW_SCREEN_HEX(0x588ADF)
+#define COLOR_DES_B HW_SCREEN_HEX(0x212636)
+#define COLOR_SEL_B HW_SCREEN_HEX(0x003977)
+#define COLOR_DWN_B HW_SCREEN_HEX(0x385AAF)
+
+uint8_t app = 0;
+
+uint8_t menu_selected;
+uint8_t menu_down;
+const char *menu_btns[] = {
+	"main",
+	"kb_test",
+	"settings",
+	"darknet",
+	"pornhub",
+};
+uint8_t menu_btns_redraw[sizeof(menu_btns) / sizeof(*menu_btns)];
+
+void app_menu_init() {
+    draw_logo(0);
+
+	menu_selected = 0;
+	menu_down = 0;
+	memset(menu_btns_redraw, 1, sizeof(menu_btns_redraw) / sizeof(*menu_btns_redraw));
+}
+
+void app_menu() {
+	hw_kb_update_t kb = hw_kb_get_update();
+	if (HW_KB_BTN_UP(kb.pressed) || HW_KB_BTN_BIG(kb.pressed, 1, 3)) {
+		if (menu_selected > 0) {
+			menu_btns_redraw[menu_selected] = 1;
+			menu_selected--;
+			menu_btns_redraw[menu_selected] = 1;
+		}
+	}
+	if (HW_KB_BTN_DOWN(kb.pressed) || HW_KB_BTN_BIG(kb.pressed, 3, 3)) {
+		if (menu_selected < sizeof(menu_btns) / sizeof(*menu_btns) - 1) {
+			menu_btns_redraw[menu_selected] = 1;
+			menu_selected++;
+			menu_btns_redraw[menu_selected] = 1;
+		}
+	}
+	if (HW_KB_BTN_OK(kb.pressed) || HW_KB_BTN_BIG(kb.pressed, 2, 2)) {
+		menu_down = 1;
+		menu_btns_redraw[menu_selected] = 1;
+	}
+	if (HW_KB_BTN_OK(kb.released) || HW_KB_BTN_BIG(kb.released, 2, 2)) {
+		menu_down = 0;
+		menu_btns_redraw[menu_selected] = 1;
+		app = menu_selected + 1;
+		return;
+	}
+
+	for (uint32_t i = 0; i < sizeof(menu_btns) / sizeof(*menu_btns); i++) {
+		if (menu_btns_redraw[i]) {
+			menu_btns_redraw[i] = 0;
+			uint16_t color_border = i == menu_selected ? (menu_down ? COLOR_DWN_B : COLOR_SEL_B) : COLOR_DES_B;
+			uint16_t color_fill   = i == menu_selected ? (menu_down ? COLOR_DWN   : COLOR_SEL  ) : COLOR_DES;
+			uint16_t color_text   = HW_SCREEN_HEX(0x000000);
+			draw_btn(
+				HW_SCREEN_W / 2, 100 + i * 34,
+				150, 30,
+				color_border, color_fill, color_text,
+				menu_btns[i]
+			);
+		}
+	}
+	vTaskDelay(pdMS_TO_TICKS(50));
+}
+
+void app_main_init() {
+}
+
+void app_main() {
+	hw_kb_update_t kb = hw_kb_get_update();
+
+	if (KB_EXIT(kb)) {
+		app = 0;
+		return;
+	}
+
+	hw_screen_draw_string_x2_hv_center(HW_SCREEN_W / 2, HW_SCREEN_H / 2, HW_SCREEN_HEX(0xFF0000), "mainz");
+
+	vTaskDelay(pdMS_TO_TICKS(50));
+}
+
+void draw_key(uint16_t x, uint16_t y, uint8_t pressed, uint8_t held, uint8_t released) {
+	if (pressed) {
+		hw_screen_fill_rect(x, y, 16, 16, COLOR_GREEN);
+	} else if (released) {
+		hw_screen_fill_rect(x, y, 16, 16, COLOR_RED);
+	} else {
+		hw_screen_fill_rect(x, y, 16, 16, COLOR_DGREY);
+	}
+	hw_screen_fill_rect(x + 4, y + 4, 8, 8, held ? COLOR_YELLOW : COLOR_DGREY);
+}
+
+void app_kb_test_init() {
+	draw_logo(0);
+}
+
+void app_kb_test() {
+	hw_kb_update_t kb = hw_kb_get_update();
+
+	if (KB_EXIT(kb)) {
+		app = 0;
+		return;
+	}
+
+	draw_key(53, 85,
+		HW_KB_BTN_UP(kb.pressed), HW_KB_BTN_UP(kb.held), HW_KB_BTN_UP(kb.released));
+	draw_key(53, 110,
+		HW_KB_BTN_DOWN(kb.pressed), HW_KB_BTN_DOWN(kb.held), HW_KB_BTN_DOWN(kb.released));
+	draw_key(33, 97,
+		HW_KB_BTN_LEFT(kb.pressed), HW_KB_BTN_LEFT(kb.held), HW_KB_BTN_LEFT(kb.released));
+	draw_key(73, 97,
+		HW_KB_BTN_RIGHT(kb.pressed), HW_KB_BTN_RIGHT(kb.held), HW_KB_BTN_RIGHT(kb.released));
+
+	draw_key(113, 87,
+		HW_KB_BTN_HOME(kb.pressed), HW_KB_BTN_HOME(kb.held), HW_KB_BTN_HOME(kb.released));
+	draw_key(113, 107,
+		HW_KB_BTN_POWER(kb.pressed), HW_KB_BTN_POWER(kb.held), HW_KB_BTN_POWER(kb.released));
+
+	draw_key(153, 87,
+		HW_KB_BTN_OK(kb.pressed), HW_KB_BTN_OK(kb.held), HW_KB_BTN_OK(kb.released));
+	draw_key(173, 87,
+		HW_KB_BTN_BACK(kb.pressed), HW_KB_BTN_BACK(kb.held), HW_KB_BTN_BACK(kb.released));
+
+	for (uint8_t c = 0; c < 6; c++) {
+		for (uint8_t r = 0; r < 3; r++) {
+			draw_key(62 + c * 20, 140 + r * 20,
+				HW_KB_BTN_SMALL(kb.pressed, c, r), HW_KB_BTN_SMALL(kb.held, c, r), HW_KB_BTN_SMALL(kb.released, c, r));
+		}
+	}
+	for (uint8_t c = 0; c < 5; c++) {
+		for (uint8_t r = 0; r < 4; r++) {
+			draw_key(72 + c * 20, 210 + r * 20,
+				HW_KB_BTN_BIG(kb.pressed, c, r), HW_KB_BTN_BIG(kb.held, c, r), HW_KB_BTN_BIG(kb.released, c, r));
+		}
+	}
+	vTaskDelay(pdMS_TO_TICKS(50));
+}
+
+void core(void *argument) {
+	hw_init();
+	hw_screen_brightness(9);
+	hw_led_set_hex(0x12B4E6);
+
+	// fade white
+    vTaskDelay(pdMS_TO_TICKS(50));
+    for (uint32_t i = 0; i < 255; i += 10) {
+        hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, HW_SCREEN_RGB(i, i, i));
+    	vTaskDelay(pdMS_TO_TICKS(10));
     }
 
-    // keyboard test
+    // logo animation
+    hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, COLOR_WHITE);
+    draw_logo(1);
+
+    app = 0;
+    uint8_t last_app = 0xFF;
 	while (1) {
-		hw_kb_update_t kb = hw_kb_get_update();
-
-		draw_key(53, 85,
-			HW_KB_BTN_UP(kb.pressed), HW_KB_BTN_UP(kb.held), HW_KB_BTN_UP(kb.released));
-		draw_key(53, 110,
-			HW_KB_BTN_DOWN(kb.pressed), HW_KB_BTN_DOWN(kb.held), HW_KB_BTN_DOWN(kb.released));
-		draw_key(33, 97,
-			HW_KB_BTN_LEFT(kb.pressed), HW_KB_BTN_LEFT(kb.held), HW_KB_BTN_LEFT(kb.released));
-		draw_key(73, 97,
-			HW_KB_BTN_RIGHT(kb.pressed), HW_KB_BTN_RIGHT(kb.held), HW_KB_BTN_RIGHT(kb.released));
-
-		draw_key(113, 87,
-			HW_KB_BTN_HOME(kb.pressed), HW_KB_BTN_HOME(kb.held), HW_KB_BTN_HOME(kb.released));
-		draw_key(113, 107,
-			HW_KB_BTN_POWER(kb.pressed), HW_KB_BTN_POWER(kb.held), HW_KB_BTN_POWER(kb.released));
-
-		draw_key(153, 87,
-			HW_KB_BTN_OK(kb.pressed), HW_KB_BTN_OK(kb.held), HW_KB_BTN_OK(kb.released));
-		draw_key(173, 87,
-			HW_KB_BTN_BACK(kb.pressed), HW_KB_BTN_BACK(kb.held), HW_KB_BTN_BACK(kb.released));
-
-		for (uint8_t c = 0; c < 6; c++) {
-			for (uint8_t r = 0; r < 3; r++) {
-				draw_key(62 + c * 20, 140 + r * 20,
-					HW_KB_BTN_SMALL(kb.pressed, c, r), HW_KB_BTN_SMALL(kb.held, c, r), HW_KB_BTN_SMALL(kb.released, c, r));
+		// app switch
+		if (app != last_app) {
+		    hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, COLOR_WHITE);
+			switch (app) {
+			case 1:
+				app_main_init();
+				break;
+			case 2:
+				app_kb_test_init();
+				break;
+			default:
+				app_menu_init();
+				break;
 			}
 		}
-		for (uint8_t c = 0; c < 5; c++) {
-			for (uint8_t r = 0; r < 4; r++) {
-				draw_key(72 + c * 20, 210 + r * 20,
-					HW_KB_BTN_BIG(kb.pressed, c, r), HW_KB_BTN_BIG(kb.held, c, r), HW_KB_BTN_BIG(kb.released, c, r));
+		last_app = app;
+
+		// app loop
+		switch (app) {
+		case 1:
+			app_main();
+			break;
+		case 2:
+			app_kb_test();
+			break;
+		default: {
+			if (app != 0) {
+				char buf[11];
+				snprintf(buf, sizeof(buf) - 1, "app #0x%02X", app);
+				hw_screen_draw_string_x2(2, 2, HW_SCREEN_HEX(0xFF0000), buf);
 			}
+			app_menu();
+			break;
 		}
-		vTaskDelay(pdMS_TO_TICKS(100));
+		}
 	}
 }
