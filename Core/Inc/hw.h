@@ -63,6 +63,9 @@ void hw_flash_write();
 hw_kb_update_t hw_kb_get_update();
 void hw_screen_led_timer_callback();
 void hw_screen_brightness(int8_t level);
+extern uint16_t *hw_screen_buffer;
+extern volatile uint8_t hw_screen_freeze;
+void hw_screen_stream_framebuffer();
 void hw_screen_set_pixel(uint16_t x, uint16_t y, uint16_t color);
 void hw_screen_fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
 #define hw_screen_fill_rect_h_center(x, y, w, h, color) hw_screen_fill_rect((x) - (w) / 2, y, w, h, color)

@@ -13,7 +13,7 @@ void draw_logo(uint8_t animate) {
     hw_screen_draw_string_hv_center(HW_SCREEN_W / 2, 15, HW_SCREEN_HEX(0x808080), "leck");
 
     if (animate) {
-    	vTaskDelay(pdMS_TO_TICKS(100));
+    	vTaskDelay(pdMS_TO_TICKS(200));
     }
 
     hw_screen_draw_string_x2_hv_center(HW_SCREEN_W / 2, 35, HW_SCREEN_HEX(0x000000), "mein");
@@ -23,29 +23,32 @@ void draw_logo(uint8_t animate) {
     for (uint32_t x = 4; x < HW_SCREEN_W - 4; x++) {
     	if (title[title_i] != '\0') {
 			if (x >= HW_SCREEN_W / 2 - strlen(title) * 16 / 2 + title_i * 16 + 8) {
+		        hw_screen_freeze = 1;
 				hw_screen_draw_char_x2(HW_SCREEN_W / 2 - strlen(title) * 16 / 2 + title_i * 16, 50, HW_SCREEN_HEX(0x000000), title[title_i]);
+		        hw_screen_freeze = 0;
 				title_i++;
 			}
     	}
     	hw_screen_fill_rect(x, HW_SCREEN_H - 10, 1, 6, HW_SCREEN_HEX(0x12B4E6));
 
         if (animate) {
-        	vTaskDelay(pdMS_TO_TICKS(5));
+        	vTaskDelay(pdMS_TO_TICKS(8));
         }
     }
     // https://mycolor.space/
     const uint16_t extra_colors[] = {
-		HW_SCREEN_HEX(0xF9F871), // 5
-		HW_SCREEN_HEX(0xFFC75F), // 4
-		HW_SCREEN_HEX(0xFF9671), // 3
-		HW_SCREEN_HEX(0xFF6F91), // 2
-		HW_SCREEN_HEX(0xD65DB1), // 1
 		HW_SCREEN_HEX(0x845EC2), // 0
+		HW_SCREEN_HEX(0xD65DB1), // 1
+		HW_SCREEN_HEX(0xFF6F91), // 2
+		HW_SCREEN_HEX(0xFF9671), // 3
+		HW_SCREEN_HEX(0xFFC75F), // 4
+		HW_SCREEN_HEX(0xF9F871), // 5
     };
     for (uint32_t i = 0; i < sizeof(extra_colors) / sizeof(*extra_colors); i++) {
-    	uint32_t offset = (sizeof(extra_colors) / sizeof(*extra_colors) - i - 1) * 1;
-    	hw_screen_draw_string_x2(HW_SCREEN_W / 2 - strlen(title) * 16 / 2 + offset, 50 + offset, extra_colors[i], title);
+        hw_screen_freeze = 1;
+    	hw_screen_draw_string_x2(HW_SCREEN_W / 2 - strlen(title) * 16 / 2 + i, 50 + i, extra_colors[i], title);
     	hw_screen_draw_string_x2(HW_SCREEN_W / 2 - strlen(title) * 16 / 2, 50, HW_SCREEN_HEX(0x000000), title);
+        hw_screen_freeze = 0;
 
         if (animate) {
         	vTaskDelay(pdMS_TO_TICKS(100));
@@ -128,7 +131,6 @@ void app_menu() {
 			);
 		}
 	}
-	vTaskDelay(pdMS_TO_TICKS(50));
 }
 
 void app_main_init() {
@@ -143,8 +145,6 @@ void app_main() {
 	}
 
 	hw_screen_draw_string_x2_hv_center(HW_SCREEN_W / 2, HW_SCREEN_H / 2, HW_SCREEN_HEX(0xFF0000), "mainz");
-
-	vTaskDelay(pdMS_TO_TICKS(50));
 }
 
 void draw_key(uint16_t x, uint16_t y, uint8_t pressed, uint8_t held, uint8_t released) {
@@ -201,19 +201,43 @@ void app_kb_test() {
 				HW_KB_BTN_BIG(kb.pressed, c, r), HW_KB_BTN_BIG(kb.held, c, r), HW_KB_BTN_BIG(kb.released, c, r));
 		}
 	}
-	vTaskDelay(pdMS_TO_TICKS(50));
+}
+
+void app_darknet_init() {
+}
+
+void app_darknet() {
+	static uint8_t v = 0xF0;
+
+	hw_kb_update_t kb = hw_kb_get_update();
+
+	if (KB_EXIT(kb)) {
+		app = 0;
+		return;
+	}
+
+	hw_screen_freeze = 1;
+	memset(hw_screen_buffer, v, HW_SCREEN_W * HW_SCREEN_H * sizeof(uint16_t));
+	draw_logo(0);
+	hw_screen_freeze = 0;
+
+	v ^= 0xFF;
+	vTaskDelay(pdMS_TO_TICKS(666));
 }
 
 void core(void *argument) {
 	hw_init();
+#if 1
 	hw_screen_brightness(9);
 	hw_led_set_hex(0x12B4E6);
 
 	// fade white
     vTaskDelay(pdMS_TO_TICKS(50));
-    for (uint32_t i = 0; i < 255; i += 10) {
+    for (uint32_t i = 0; i < 255; i += 20) {
+    	hw_screen_freeze = 1;
         hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, HW_SCREEN_RGB(i, i, i));
-    	vTaskDelay(pdMS_TO_TICKS(10));
+    	hw_screen_freeze = 0;
+    	vTaskDelay(pdMS_TO_TICKS(25));
     }
 
     // logo animation
@@ -225,6 +249,7 @@ void core(void *argument) {
 	while (1) {
 		// app switch
 		if (app != last_app) {
+	        hw_screen_freeze = 1;
 		    hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, COLOR_WHITE);
 			switch (app) {
 			case 1:
@@ -232,6 +257,9 @@ void core(void *argument) {
 				break;
 			case 2:
 				app_kb_test_init();
+				break;
+			case 4:
+				app_darknet_init();
 				break;
 			default:
 				app_menu_init();
@@ -248,15 +276,21 @@ void core(void *argument) {
 		case 2:
 			app_kb_test();
 			break;
+		case 4:
+			app_darknet();
+			break;
 		default: {
 			if (app != 0) {
-				char buf[11];
-				snprintf(buf, sizeof(buf) - 1, "app #0x%02X", app);
-				hw_screen_draw_string_x2(2, 2, HW_SCREEN_HEX(0xFF0000), buf);
+				// TODO: custom sprintf (smaller than 2kB)
+				hw_screen_fill_rect(0, 0, 5, 5, HW_SCREEN_HEX(0xFF0000));
 			}
 			app_menu();
 			break;
 		}
 		}
+
+		hw_screen_freeze = 0;
+		vTaskDelay(pdMS_TO_TICKS(50));
 	}
+#endif
 }

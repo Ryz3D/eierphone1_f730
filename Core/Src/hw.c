@@ -13,6 +13,7 @@ extern UART_HandleTypeDef huart6; // Debug UART
 extern TIM_HandleTypeDef htim3; // RGB LED PWM timer
 extern TIM_HandleTypeDef htim6; // LCD backlight controller EN pulse generator
 extern QSPI_HandleTypeDef hqspi; // FLASH QSPI
+extern DMA_HandleTypeDef hdma_memtomem_dma2_stream1; // LCD framebuffer DMA stream
 
 #define USB_CDC 0
 
@@ -40,6 +41,8 @@ void hw_kb_loop(void *argument);
 void hw_screen_cmd(uint16_t cmd);
 void hw_screen_dat(uint16_t dat);
 
+void screentest();
+
 void hw_init() {
 	// # bat
 
@@ -60,6 +63,8 @@ void hw_init() {
 	HAL_GPIO_WritePin(LCD_RESET_GPIO_Port, LCD_RESET_Pin, GPIO_PIN_SET);
 	vTaskDelay(pdMS_TO_TICKS(10));
 
+	HAL_GPIO_WritePin(LCD_EXTC_GPIO_Port, LCD_EXTC_Pin, GPIO_PIN_SET);
+
 	hw_screen_cmd(ST7789V_SLPOUT);
 	vTaskDelay(pdMS_TO_TICKS(5));
 
@@ -67,8 +72,8 @@ void hw_init() {
 	hw_screen_dat(0x00);
 
 	hw_screen_cmd(ST7789V_PORCTRL); // Porch Setting
-	hw_screen_dat(0x0C);
-	hw_screen_dat(0x0C);
+	hw_screen_dat(0x18);
+	hw_screen_dat(0x18);
 	hw_screen_dat(0x00);
 	hw_screen_dat(0x33);
 	hw_screen_dat(0x33);
@@ -90,9 +95,6 @@ void hw_init() {
 
 	hw_screen_cmd(ST7789V_VDVS);
 	hw_screen_dat(0x20);
-
-	hw_screen_cmd(ST7789V_FRCTRL2);
-	hw_screen_dat(0x0F); // 60Hz 0A
 
 	hw_screen_cmd(ST7789V_PWCTRL1);
 	hw_screen_dat(0xA4);
@@ -130,13 +132,15 @@ void hw_init() {
 	hw_screen_dat(0x16);
 	hw_screen_dat(0x34);
 
-	hw_screen_cmd(ST7789V_INVON);
-
+	hw_screen_cmd(ST7789V_FRCTRL2);
+	hw_screen_dat(0x0F); // 60 FPS
+	hw_screen_cmd(ST7789V_TEON);
+	hw_screen_dat(0x00); // Tear effect pin enable
 	hw_screen_cmd(ST7789V_COLMOD);
 	hw_screen_dat(0x55); // 65K colors, 16 bit/px
+	hw_screen_cmd(ST7789V_INVON);
 
 	hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, COLOR_BLACK);
-	hw_screen_cmd(ST7789V_RAMWR);
 	hw_screen_cmd(ST7789V_DISPON);
 	HAL_GPIO_WritePin(LCD_LIGHT_GPIO_Port, LCD_LIGHT_Pin, GPIO_PIN_SET);
 	vTaskDelay(pdMS_TO_TICKS(1));
@@ -267,23 +271,38 @@ void hw_screen_set_cursor(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1) {
     hw_screen_cmd(ST7789V_RAMWR);
 }
 
+static uint32_t hw_screen_buffer_aligned[HW_SCREEN_W * HW_SCREEN_H / 2];
+uint16_t *hw_screen_buffer = (uint16_t*)hw_screen_buffer_aligned;
+volatile uint8_t hw_screen_freeze = 0;
+
+void hw_screen_stream_framebuffer() {
+	if (!hw_screen_freeze && HAL_DMA_GetState(&hdma_memtomem_dma2_stream1) == HAL_DMA_STATE_READY) {
+		hw_screen_set_cursor(0, 0, HW_SCREEN_W - 1, HW_SCREEN_H - 1);
+		HAL_DMA_Start_IT(
+			&hdma_memtomem_dma2_stream1,
+			(uint32_t)(void*)hw_screen_buffer_aligned, // source
+			(uint32_t)(void*)HW_SCREEN_DAT, // destination
+			sizeof(hw_screen_buffer_aligned) / sizeof(*hw_screen_buffer_aligned) // length (in words)
+		);
+	}
+}
+
 void hw_screen_set_pixel(uint16_t x, uint16_t y, uint16_t color) {
-	hw_screen_set_cursor(x, y, x, y);
-	hw_screen_dat(color);
+	hw_screen_buffer[y * HW_SCREEN_W + x] = color;
 }
 
 void hw_screen_fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color) {
-	hw_screen_set_cursor(x, y, x + w - 1, y + h - 1);
-	for (uint32_t n = 0; n < (uint32_t)w * (uint32_t)h; n++) {
-		hw_screen_dat(color);
+	for (uint16_t x1 = x; x1 < x + w; x1++) {
+		for (uint16_t y1 = y; y1 < y + h; y1++) {
+			hw_screen_buffer[y1 * HW_SCREEN_W + x1] = color;
+		}
 	}
 }
 
 void hw_screen_draw_data(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *data) {
-	hw_screen_set_cursor(x, y, x + w - 1, y + h - 1);
-	for (uint32_t n = 0; n < (uint32_t)w * (uint32_t)h; n++) {
-		hw_screen_dat(*data);
-		data++;
+	for (uint16_t y1 = y; y1 < y + h; y1++) {
+		memcpy(&hw_screen_buffer[y1 * HW_SCREEN_W + x], data, w * sizeof(uint16_t));
+		data += w;
 	}
 }
 

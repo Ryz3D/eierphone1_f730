@@ -96,6 +96,7 @@ void Error_Handler(void);
 #define VBAT_SNS_GPIO_Port GPIOB
 #define LCD_TE_Pin GPIO_PIN_11
 #define LCD_TE_GPIO_Port GPIOB
+#define LCD_TE_EXTI_IRQn EXTI15_10_IRQn
 #define LCD_DAT_CMD_Pin GPIO_PIN_11
 #define LCD_DAT_CMD_GPIO_Port GPIOD
 #define LCD_POW_EN_Pin GPIO_PIN_8
