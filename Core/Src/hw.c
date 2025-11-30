@@ -51,6 +51,50 @@ void hw_init() {
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
 
+	// # flash
+	// write enable
+	QSPI_CommandTypeDef qspi_cmd_write_enable = {
+		.Instruction = 0x06,
+		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
+		.Address = 0,
+		.AddressSize = 0,
+		.AddressMode = QSPI_ADDRESS_NONE,
+		.NbData = 0,
+		.DataMode = QSPI_DATA_NONE,
+		.DummyCycles = 0,
+		.DdrMode = QSPI_DDR_MODE_DISABLE,
+	};
+	HAL_QSPI_Command(&hqspi, &qspi_cmd_write_enable, 1000);
+	// write status register 2
+	QSPI_CommandTypeDef qspi_cmd_write_sr2 = {
+		.Instruction = 0x31,
+		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
+		.Address = 0x02,
+		.AddressSize = 1,
+		.AddressMode = QSPI_ADDRESS_1_LINE,
+		.NbData = 0,
+		.DataMode = QSPI_DATA_NONE,
+		.DummyCycles = 0,
+		.DdrMode = QSPI_DDR_MODE_DISABLE,
+	};
+	HAL_QSPI_Command(&hqspi, &qspi_cmd_write_sr2, 1000);
+	// fast read some data
+	QSPI_CommandTypeDef qspi_cmd_fast_read = {
+		.Instruction = 0xEB,
+		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
+		.Address = (0x000100 << 8) | 0x00,
+		.AddressSize = 4,
+		.AddressMode = QSPI_ADDRESS_4_LINES,
+		.NbData = 32,
+		.DataMode = QSPI_DATA_4_LINES,
+		.DummyCycles = 4,
+		.DdrMode = QSPI_DDR_MODE_DISABLE,
+	};
+	HAL_QSPI_Command(&hqspi, &qspi_cmd_fast_read, 1000);
+	uint8_t qspi_data[128];
+	memset(qspi_data, 0, sizeof(qspi_data));
+	HAL_QSPI_Receive(&hqspi, &qspi_data, 1000);
+
 	// # kb
 	TaskHandle_t hw_kb_task;
 	xTaskCreate(hw_kb_loop, "hw_kb", 128, NULL, osPriorityLow, &hw_kb_task);

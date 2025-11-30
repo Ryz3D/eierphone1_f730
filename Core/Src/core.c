@@ -227,7 +227,6 @@ void app_darknet() {
 
 void core(void *argument) {
 	hw_init();
-#if 1
 	hw_screen_brightness(9);
 	hw_led_set_hex(0x12B4E6);
 
@@ -292,5 +291,4 @@ void core(void *argument) {
 		hw_screen_freeze = 0;
 		vTaskDelay(pdMS_TO_TICKS(50));
 	}
-#endif
 }
