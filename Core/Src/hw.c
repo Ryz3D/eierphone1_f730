@@ -41,7 +41,7 @@ void hw_kb_loop(void *argument);
 void hw_screen_cmd(uint16_t cmd);
 void hw_screen_dat(uint16_t dat);
 
-void screentest();
+void flash_test();
 
 void hw_init() {
 	// # bat
@@ -52,48 +52,6 @@ void hw_init() {
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
 
 	// # flash
-	// write enable
-	QSPI_CommandTypeDef qspi_cmd_write_enable = {
-		.Instruction = 0x06,
-		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
-		.Address = 0,
-		.AddressSize = 0,
-		.AddressMode = QSPI_ADDRESS_NONE,
-		.NbData = 0,
-		.DataMode = QSPI_DATA_NONE,
-		.DummyCycles = 0,
-		.DdrMode = QSPI_DDR_MODE_DISABLE,
-	};
-	HAL_QSPI_Command(&hqspi, &qspi_cmd_write_enable, 1000);
-	// write status register 2
-	QSPI_CommandTypeDef qspi_cmd_write_sr2 = {
-		.Instruction = 0x31,
-		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
-		.Address = 0x02,
-		.AddressSize = 1,
-		.AddressMode = QSPI_ADDRESS_1_LINE,
-		.NbData = 0,
-		.DataMode = QSPI_DATA_NONE,
-		.DummyCycles = 0,
-		.DdrMode = QSPI_DDR_MODE_DISABLE,
-	};
-	HAL_QSPI_Command(&hqspi, &qspi_cmd_write_sr2, 1000);
-	// fast read some data
-	QSPI_CommandTypeDef qspi_cmd_fast_read = {
-		.Instruction = 0xEB,
-		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
-		.Address = (0x000100 << 8) | 0x00,
-		.AddressSize = 4,
-		.AddressMode = QSPI_ADDRESS_4_LINES,
-		.NbData = 32,
-		.DataMode = QSPI_DATA_4_LINES,
-		.DummyCycles = 4,
-		.DdrMode = QSPI_DDR_MODE_DISABLE,
-	};
-	HAL_QSPI_Command(&hqspi, &qspi_cmd_fast_read, 1000);
-	uint8_t qspi_data[128];
-	memset(qspi_data, 0, sizeof(qspi_data));
-	HAL_QSPI_Receive(&hqspi, &qspi_data, 1000);
 
 	// # kb
 	TaskHandle_t hw_kb_task;
@@ -188,6 +146,8 @@ void hw_init() {
 	hw_screen_cmd(ST7789V_DISPON);
 	HAL_GPIO_WritePin(LCD_LIGHT_GPIO_Port, LCD_LIGHT_Pin, GPIO_PIN_SET);
 	vTaskDelay(pdMS_TO_TICKS(1));
+
+	flash_test();
 }
 
 uint8_t hw_bat_charging() {
@@ -226,6 +186,212 @@ void hw_flash_read() {
 
 void hw_flash_write() {
 	// TODO
+}
+
+void hw_flash_cmd_write_enable() {
+	QSPI_CommandTypeDef qspi_cmd = {
+		.Instruction = 0x06,
+		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
+		.Address = 0,
+		.AddressSize = 0,
+		.AddressMode = QSPI_ADDRESS_NONE,
+		.NbData = 0,
+		.DataMode = QSPI_DATA_NONE,
+		.DummyCycles = 0,
+		.DdrMode = QSPI_DDR_MODE_DISABLE,
+	};
+	HAL_QSPI_Command(&hqspi, &qspi_cmd, 100);
+}
+
+void hw_flash_cmd_write_status_reg(uint16_t i)  {
+	hw_flash_cmd_write_enable();
+	QSPI_CommandTypeDef qspi_cmd = {
+		.Instruction = 0x01,
+		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
+		.Address = 0,
+		.AddressSize = 0,
+		.AddressMode = QSPI_ADDRESS_NONE,
+		.NbData = 2,
+		.DataMode = QSPI_DATA_1_LINE,
+		.DummyCycles = 0,
+		.DdrMode = QSPI_DDR_MODE_DISABLE,
+	};
+	HAL_QSPI_Command(&hqspi, &qspi_cmd, 100);
+	HAL_QSPI_Transmit(&hqspi, (uint8_t*)&i, 100);
+}
+
+uint16_t hw_flash_cmd_read_status_reg()  {
+	QSPI_CommandTypeDef qspi_cmd = {
+		.Instruction = 0x05,
+		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
+		.Address = 0,
+		.AddressSize = 0,
+		.AddressMode = QSPI_ADDRESS_NONE,
+		.NbData = 2,
+		.DataMode = QSPI_DATA_1_LINE,
+		.DummyCycles = 0,
+		.DdrMode = QSPI_DDR_MODE_DISABLE,
+	};
+	uint16_t i = 0;
+	HAL_QSPI_Command(&hqspi, &qspi_cmd, 100);
+	HAL_QSPI_Receive(&hqspi, (uint8_t*)&i, 100);
+	return i;
+}
+
+uint16_t hw_flash_cmd_read_security_reg() {
+	QSPI_CommandTypeDef qspi_cmd = {
+		.Instruction = 0x2B,
+		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
+		.Address = 0,
+		.AddressSize = 0,
+		.AddressMode = QSPI_ADDRESS_NONE,
+		.NbData = 2,
+		.DataMode = QSPI_DATA_1_LINE,
+		.DummyCycles = 0,
+		.DdrMode = QSPI_DDR_MODE_DISABLE,
+	};
+	uint16_t i = 0;
+	HAL_QSPI_Command(&hqspi, &qspi_cmd, 100);
+	HAL_QSPI_Receive(&hqspi, (uint8_t *)&i, 100);
+	return i;
+}
+
+uint16_t hw_flash_cmd_device_id() {
+	QSPI_CommandTypeDef qspi_cmd = {
+		.Instruction = 0xAB,
+		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
+		.Address = 1,
+		.AddressSize = QSPI_ADDRESS_24_BITS,
+		.AddressMode = QSPI_ADDRESS_1_LINE,
+		.NbData = 2,
+		.DataMode = QSPI_DATA_1_LINE,
+		.DummyCycles = 0,
+		.DdrMode = QSPI_DDR_MODE_DISABLE,
+	};
+	uint16_t i = 0;
+	HAL_QSPI_Command(&hqspi, &qspi_cmd, 100);
+	HAL_QSPI_Receive(&hqspi, (uint8_t *)&i, 100);
+	return i;
+}
+
+uint16_t hw_flash_cmd_device_id_q() {
+	QSPI_CommandTypeDef qspi_cmd = {
+		.Instruction = 0x94,
+		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
+		.Address = 0,
+		.AddressSize = QSPI_ADDRESS_32_BITS,
+		.AddressMode = QSPI_ADDRESS_4_LINES,
+		.NbData = 2,
+		.DataMode = QSPI_DATA_4_LINES,
+		.DummyCycles = 4,
+		.DdrMode = QSPI_DDR_MODE_DISABLE,
+	};
+	uint16_t i = 0;
+	HAL_QSPI_Command(&hqspi, &qspi_cmd, 100);
+	HAL_QSPI_Receive(&hqspi, (uint8_t *)&i, 100);
+	return i;
+}
+
+void hw_flash_cmd_read(uint32_t addr, uint8_t *data, uint32_t len) {
+	QSPI_CommandTypeDef qspi_cmd = {
+		.Instruction = 0x03,
+		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
+		.Address = addr & 0xFFFFFF,
+		.AddressSize = QSPI_ADDRESS_24_BITS,
+		.AddressMode = QSPI_ADDRESS_1_LINE,
+		.NbData = len,
+		.DataMode = QSPI_DATA_1_LINE,
+		.DummyCycles = 0,
+		.DdrMode = QSPI_DDR_MODE_DISABLE,
+	};
+	// TODO: temp
+	memset(data, 0, len);
+	HAL_QSPI_Command(&hqspi, &qspi_cmd, 100);
+	HAL_QSPI_Receive(&hqspi, data, 100 + len / 100);
+}
+
+void hw_flash_cmd_read_q(uint32_t addr, uint8_t *data, uint32_t len) {
+	QSPI_CommandTypeDef qspi_cmd = {
+		.Instruction = 0xEB,
+		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
+		.Address = ((addr & 0xFFFFFF) << 8) | 0x00,
+		.AddressSize = QSPI_ADDRESS_32_BITS,
+		.AddressMode = QSPI_ADDRESS_4_LINES,
+		.NbData = len,
+		.DataMode = QSPI_DATA_4_LINES,
+		.DummyCycles = 4,
+		.DdrMode = QSPI_DDR_MODE_DISABLE,
+		.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE
+	};
+	// TODO: temp
+	memset(data, 0, len);
+	HAL_QSPI_Command(&hqspi, &qspi_cmd, 100);
+	HAL_QSPI_Receive(&hqspi, data, 100 + len / 100);
+}
+
+void hw_flash_cmd_read_qo(uint32_t addr, uint8_t *data, uint32_t len) {
+	QSPI_CommandTypeDef qspi_cmd = {
+		.Instruction = 0x6B,
+		.InstructionMode = QSPI_INSTRUCTION_1_LINE,
+		.Address = addr & 0xFFFFFF,
+		.AddressSize = QSPI_ADDRESS_24_BITS,
+		.AddressMode = QSPI_ADDRESS_1_LINE,
+		.NbData = len,
+		.DataMode = QSPI_DATA_4_LINES,
+		.DummyCycles = 8,
+		.DdrMode = QSPI_DDR_MODE_DISABLE,
+	};
+	// TODO: temp
+	memset(data, 0, len);
+	HAL_QSPI_Command(&hqspi, &qspi_cmd, 100);
+	HAL_QSPI_Receive(&hqspi, data, 100 + len / 100);
+}
+
+void flash_test() {
+	hw_screen_fill_rect(0, 0, HW_SCREEN_W, HW_SCREEN_H, HW_SCREEN_HEX(0xFFFFFF));
+	hw_screen_brightness(15);
+
+	uint16_t y = 10;
+	hw_screen_draw_uint16_hex(10, y, HW_SCREEN_HEX(0x0000FF), hw_flash_cmd_device_id());
+	hw_screen_draw_uint16_hex(60, y, HW_SCREEN_HEX(0x0000FF), hw_flash_cmd_device_id_q());
+	y += 8;
+	hw_screen_draw_uint16_hex(10, y, HW_SCREEN_HEX(0xFF0000), hw_flash_cmd_read_security_reg());
+	y += 8;
+	hw_screen_draw_uint16_hex(10, y, HW_SCREEN_HEX(0x000000), hw_flash_cmd_read_status_reg());
+	y += 8;
+	hw_screen_draw_uint16_hex(10, y, HW_SCREEN_HEX(0x000000), hw_flash_cmd_read_status_reg());
+	y += 8;
+	hw_flash_cmd_write_status_reg(0x0002);
+	hw_screen_draw_uint16_hex(10, y, HW_SCREEN_HEX(0x000000), hw_flash_cmd_read_status_reg());
+	y += 8;
+	// hw_flash_cmd_write_status_reg(0x0000);
+	hw_screen_draw_uint16_hex(10, y, HW_SCREEN_HEX(0x000000), hw_flash_cmd_read_status_reg());
+	y += 8;
+
+	y += 8;
+	hw_screen_draw_string(110, y, HW_SCREEN_HEX(0xFF0000), "SPI");
+	hw_screen_draw_string(150, y, HW_SCREEN_HEX(0xFF0000), "QUAD");
+	hw_screen_draw_string(190, y, HW_SCREEN_HEX(0xFF0000), "QOUT");
+	y += 10;
+
+	uint32_t addr_offset = 0x000100;
+	static uint8_t data_spi[0x100];
+	static uint8_t data_quad[0x100];
+	static uint8_t data_qout[0x100];
+	hw_flash_cmd_read(addr_offset, data_spi, sizeof(data_spi));
+	hw_flash_cmd_read_q(addr_offset, data_quad, sizeof(data_quad));
+	hw_flash_cmd_read_qo(addr_offset, data_qout, sizeof(data_qout));
+
+	while (1) {
+		for (uint32_t addr = 0; addr < sizeof(data_spi); addr++) {
+			hw_screen_fill_rect(0, y, HW_SCREEN_W, 8, HW_SCREEN_HEX(0xFFFFFF));
+			hw_screen_draw_uint32_hex(10, y, HW_SCREEN_HEX(0xFF0000), addr_offset + addr);
+			hw_screen_draw_uint8_hex(110, y, HW_SCREEN_HEX(0x000000), data_spi[addr]);
+			hw_screen_draw_uint8_hex(150, y, HW_SCREEN_HEX(0x000000), data_quad[addr]);
+			hw_screen_draw_uint8_hex(190, y, HW_SCREEN_HEX(0x000000), data_qout[addr]);
+			vTaskDelay(pdMS_TO_TICKS(400));
+		}
+	}
 }
 
 volatile hw_kb_buttons_t hw_kb_last_held = { 0 };
@@ -402,4 +568,43 @@ void hw_screen_draw_string_x2(uint16_t x, uint16_t y, uint16_t color, const char
 		hw_screen_draw_char_x2(x, y, color, *s++);
 		x += 16;
 	}
+}
+
+void hw_screen_draw_uint4(uint16_t x, uint16_t y, uint16_t color, uint8_t i) {
+	if (i < 10) {
+		hw_screen_draw_char(x, y, color, i + '0');
+	} else if (i < 16) {
+		hw_screen_draw_char(x, y, color, i + 'A' - 10);
+	}
+}
+
+void hw_screen_draw_uint4_hex(uint16_t x, uint16_t y, uint16_t color, uint8_t i) {
+	hw_screen_draw_string(x, y, color, "0x"); x += 16;
+	hw_screen_draw_uint4(x, y, color, i & 0xF);
+}
+
+void hw_screen_draw_uint8_hex(uint16_t x, uint16_t y, uint16_t color, uint8_t i) {
+	hw_screen_draw_string(x, y, color, "0x"); x += 16;
+	hw_screen_draw_uint4(x, y, color, (i >> 4) & 0xF); x += 8;
+	hw_screen_draw_uint4(x, y, color, i & 0xF);
+}
+
+void hw_screen_draw_uint16_hex(uint16_t x, uint16_t y, uint16_t color, uint16_t i) {
+	hw_screen_draw_string(x, y, color, "0x"); x += 16;
+	hw_screen_draw_uint4(x, y, color, (i >> 12) & 0xF); x += 8;
+	hw_screen_draw_uint4(x, y, color, (i >> 8) & 0xF); x += 8;
+	hw_screen_draw_uint4(x, y, color, (i >> 4) & 0xF); x += 8;
+	hw_screen_draw_uint4(x, y, color, i & 0xF);
+}
+
+void hw_screen_draw_uint32_hex(uint16_t x, uint16_t y, uint16_t color, uint32_t i) {
+	hw_screen_draw_string(x, y, color, "0x"); x += 16;
+	hw_screen_draw_uint4(x, y, color, (i >> 28) & 0xF); x += 8;
+	hw_screen_draw_uint4(x, y, color, (i >> 24) & 0xF); x += 8;
+	hw_screen_draw_uint4(x, y, color, (i >> 20) & 0xF); x += 8;
+	hw_screen_draw_uint4(x, y, color, (i >> 16) & 0xF); x += 8;
+	hw_screen_draw_uint4(x, y, color, (i >> 12) & 0xF); x += 8;
+	hw_screen_draw_uint4(x, y, color, (i >> 8) & 0xF); x += 8;
+	hw_screen_draw_uint4(x, y, color, (i >> 4) & 0xF); x += 8;
+	hw_screen_draw_uint4(x, y, color, i & 0xF);
 }

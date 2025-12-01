@@ -82,5 +82,9 @@ void hw_screen_draw_string_x2(uint16_t x, uint16_t y, uint16_t color, const char
 #define hw_screen_draw_string_x2_h_center(x, y, color, s) hw_screen_draw_string_x2((x) - strlen(s) * 16 / 2, y, color, s)
 #define hw_screen_draw_string_x2_v_center(x, y, color, s) hw_screen_draw_string_x2(x, (y) - 8, color, s)
 #define hw_screen_draw_string_x2_hv_center(x, y, color, s) hw_screen_draw_string_x2((x) - strlen(s) * 16 / 2, (y) - 8, color, s)
+void hw_screen_draw_uint4_hex(uint16_t x, uint16_t y, uint16_t color, uint8_t i);
+void hw_screen_draw_uint8_hex(uint16_t x, uint16_t y, uint16_t color, uint8_t i);
+void hw_screen_draw_uint16_hex(uint16_t x, uint16_t y, uint16_t color, uint16_t i);
+void hw_screen_draw_uint32_hex(uint16_t x, uint16_t y, uint16_t color, uint32_t i);
 
 #endif /* INC_HW_H_ */
