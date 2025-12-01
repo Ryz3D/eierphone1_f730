@@ -58,8 +58,8 @@ void hw_uart_tx(uint8_t *data, uint32_t len);
 uint32_t hw_uart_rx(uint8_t *data, uint32_t len);
 void hw_led_set(uint8_t r, uint8_t g, uint8_t b);
 #define hw_led_set_hex(h) hw_led_set((uint8_t)((h) >> 16), (uint8_t)((h) >> 8), (uint8_t)(h))
-void hw_flash_read();
-void hw_flash_write();
+void hw_flash_read(uint32_t addr, uint8_t *data, uint32_t len);
+void hw_flash_write(uint32_t addr, uint8_t *data, uint32_t len);
 hw_kb_update_t hw_kb_get_update();
 void hw_screen_led_timer_callback();
 void hw_screen_brightness(int8_t level);
@@ -83,8 +83,20 @@ void hw_screen_draw_string_x2(uint16_t x, uint16_t y, uint16_t color, const char
 #define hw_screen_draw_string_x2_v_center(x, y, color, s) hw_screen_draw_string_x2(x, (y) - 8, color, s)
 #define hw_screen_draw_string_x2_hv_center(x, y, color, s) hw_screen_draw_string_x2((x) - strlen(s) * 16 / 2, (y) - 8, color, s)
 void hw_screen_draw_uint4_hex(uint16_t x, uint16_t y, uint16_t color, uint8_t i);
+#define hw_screen_draw_uint4_hex_h_center(x, y, color, i) hw_screen_draw_uint4_hex((x) - 12, y, color, i)
+#define hw_screen_draw_uint4_hex_v_center(x, y, color, i) hw_screen_draw_uint4_hex(x, (y) - 4, color, i)
+#define hw_screen_draw_uint4_hex_hv_center(x, y, color, i) hw_screen_draw_uint4_hex((x) - 12, (y) - 4, color, i)
 void hw_screen_draw_uint8_hex(uint16_t x, uint16_t y, uint16_t color, uint8_t i);
+#define hw_screen_draw_uint8_hex_h_center(x, y, color, i) hw_screen_draw_uint8_hex((x) - 16, y, color, i)
+#define hw_screen_draw_uint8_hex_v_center(x, y, color, i) hw_screen_draw_uint8_hex(x, (y) - 4, color, i)
+#define hw_screen_draw_uint8_hex_hv_center(x, y, color, i) hw_screen_draw_uint8_hex((x) - 16, (y) - 4, color, i)
 void hw_screen_draw_uint16_hex(uint16_t x, uint16_t y, uint16_t color, uint16_t i);
+#define hw_screen_draw_uint16_hex_h_center(x, y, color, i) hw_screen_draw_uint16_hex((x) - 24, y, color, i)
+#define hw_screen_draw_uint16_hex_v_center(x, y, color, i) hw_screen_draw_uint16_hex(x, (y) - 4, color, i)
+#define hw_screen_draw_uint16_hex_hv_center(x, y, color, i) hw_screen_draw_uint16_hex((x) - 24, (y) - 4, color, i)
 void hw_screen_draw_uint32_hex(uint16_t x, uint16_t y, uint16_t color, uint32_t i);
+#define hw_screen_draw_uint32_hex_h_center(x, y, color, i) hw_screen_draw_uint32_hex((x) - 40, y, color, i)
+#define hw_screen_draw_uint32_hex_v_center(x, y, color, i) hw_screen_draw_uint32_hex(x, (y) - 4, color, i)
+#define hw_screen_draw_uint32_hex_hv_center(x, y, color, i) hw_screen_draw_uint32_hex((x) - 40, (y) - 4, color, i)
 
 #endif /* INC_HW_H_ */
